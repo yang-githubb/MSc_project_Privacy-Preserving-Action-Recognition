@@ -5,23 +5,24 @@ import argparse
 from pathlib import Path
 
 def organize_reid_data(original_cropped_dir, anonymized_cropped_dir, output_dir, 
-                      anonymized_query_count=1, original_gallery_count=1):
+                      frames_per_person=1, use_multiple_frames=False):
     """
-    Organize cropped frames for re-ID evaluation
+    Organize cropped frames for re-ID evaluation (DeepPrivacy2 exact method)
     
     This function organizes the data as follows:
-    - Puts one anonymized frame in query (ID 1)
-    - Puts remaining anonymized frames in gallery (ID 1) 
-    - Puts one original frame in gallery (ID 1, same person)
-    - This allows testing if anonymized frames match each other vs original frame
-    - High score for original frame = bad anonymization, low score = good anonymization
+    - Puts ORIGINAL frames in query (camera c1) - keep query as original
+    - Puts ANONYMIZED frames in gallery (camera c2) - anonymize gallery
+    - Each query has exactly one matching gallery entry with same person ID
+    - Uses standard re-ID naming: {person_id}_{camera_id}_{video_id}_{frame_number}.jpg
+    - Tests if original identities can be matched in anonymized gallery
+    - Lower scores = better anonymization (harder to match original to anonymized)
     
     Args:
         original_cropped_dir (str): Directory with cropped original frames
         anonymized_cropped_dir (str): Directory with cropped anonymized frames
         output_dir (str): Output directory for organized re-ID data
-        anonymized_query_count (int): Number of anonymized frames to put in query (default: 1)
-        original_gallery_count (int): Number of original frames to put in gallery (default: 1)
+        frames_per_person (int): Number of frames to use per person (default: 1)
+        use_multiple_frames (bool): Whether to use multiple frames per person (default: False)
     """
     # Create output directories for query and gallery
     query_dir = os.path.join(output_dir, "query")
@@ -42,34 +43,74 @@ def organize_reid_data(original_cropped_dir, anonymized_cropped_dir, output_dir,
         if filename.lower().endswith(('.jpg', '.jpeg', '.png')):
             original_frames.append(filename)
     
-    # Shuffle frames for random selection
-    random.shuffle(anonymized_frames)
-    random.shuffle(original_frames)
+    # Find matching frame numbers between original and anonymized
+    # Extract frame numbers (e.g., "000063.jpg" -> "000063")
+    anonymized_frame_numbers = set()
+    for frame in anonymized_frames:
+        frame_num = frame.split('.')[0]  # Remove extension
+        anonymized_frame_numbers.add(frame_num)
     
-    # Put one anonymized frame in query (ID 1)
-    if anonymized_frames:
-        query_frame = anonymized_frames[0]
-        shutil.copy2(
-            os.path.join(anonymized_cropped_dir, query_frame),
-            os.path.join(query_dir, f"0001_c1_{query_frame}")
-        )
+    original_frame_numbers = set()
+    for frame in original_frames:
+        frame_num = frame.split('.')[0]  # Remove extension
+        original_frame_numbers.add(frame_num)
+    
+    # Find common frame numbers
+    common_frames = anonymized_frame_numbers.intersection(original_frame_numbers)
+    common_frames = sorted(list(common_frames))
+    
+    print(f"Found {len(common_frames)} matching frames between original and anonymized")
+    
+    # Select frames to use (either single frame per person or multiple)
+    if use_multiple_frames:
+        selected_frames = common_frames[:frames_per_person]
+    else:
+        # Use a representative frame (e.g., middle frame)
+        if len(common_frames) > 0:
+            mid_index = len(common_frames) // 2
+            selected_frames = [common_frames[mid_index]]
+        else:
+            selected_frames = []
+    
+    print(f"Using {len(selected_frames)} frames for evaluation")
+    
+    # Organize data with DeepPrivacy2 approach: ORIGINAL in query, ANONYMIZED in gallery
+    person_id = 1
+    video_id = "video001"  # Since we're using one video
+    
+    for frame_num in selected_frames:
+        # Find the original frame with this number
+        original_frame = None
+        for frame in original_frames:
+            if frame.startswith(frame_num):
+                original_frame = frame
+                break
         
-        # Put remaining anonymized frames in gallery (ID 1)
-        for i, frame in enumerate(anonymized_frames[1:], 1):
-            gallery_name = f"0001_c1_{i:03d}_{frame}"
+        # Find the anonymized frame with this number
+        anonymized_frame = None
+        for frame in anonymized_frames:
+            if frame.startswith(frame_num):
+                anonymized_frame = frame
+                break
+        
+        if original_frame and anonymized_frame:
+            # Query: ORIGINAL frame (camera c1) - DeepPrivacy2 approach
+            query_name = f"{person_id:04d}_c1_{video_id}_{frame_num}.jpg"
             shutil.copy2(
-                os.path.join(anonymized_cropped_dir, frame),
+                os.path.join(original_cropped_dir, original_frame),
+                os.path.join(query_dir, query_name)
+            )
+            print(f"Query (ORIGINAL): {query_name}")
+            
+            # Gallery: ANONYMIZED frame (camera c2) - DeepPrivacy2 approach
+            gallery_name = f"{person_id:04d}_c2_{video_id}_{frame_num}.jpg"
+            shutil.copy2(
+                os.path.join(anonymized_cropped_dir, anonymized_frame),
                 os.path.join(gallery_dir, gallery_name)
             )
-    
-    # Put one original frame in gallery (ID 1, same person)
-    if original_frames:
-        original_frame = original_frames[0]
-        gallery_name = f"0001_c2_001_{original_frame}"
-        shutil.copy2(
-            os.path.join(original_cropped_dir, original_frame),
-            os.path.join(gallery_dir, gallery_name)
-        )
+            print(f"Gallery (ANONYMIZED): {gallery_name}")
+            
+            person_id += 1
 
 def organize_batch_reid_data(cropped_base_dir, output_base_dir, seed=42):
     """
@@ -103,6 +144,10 @@ if __name__ == "__main__":
                        help='Directory with cropped anonymized frames')
     parser.add_argument('--output_dir', type=str, default="datasets/reid_eval",
                        help='Output directory for organized re-ID data')
+    parser.add_argument('--frames_per_person', type=int, default=1,
+                       help='Number of frames to use per person (default: 1)')
+    parser.add_argument('--use_multiple_frames', action='store_true',
+                       help='Use multiple frames per person instead of single representative frame')
     parser.add_argument('--seed', type=int, default=42,
                        help='Random seed for reproducibility')
     parser.add_argument('--batch_mode', action='store_true',
@@ -127,5 +172,7 @@ if __name__ == "__main__":
         organize_reid_data(
             args.original_cropped_dir,
             args.anonymized_cropped_dir,
-            args.output_dir
+            args.output_dir,
+            args.frames_per_person,
+            args.use_multiple_frames
         )
