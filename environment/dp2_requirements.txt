@@ -14,10 +14,10 @@ contourpy==1.2.1
 cycler==0.12.1
 Cython==3.1.2
 decorator==4.4.2
-detectron2 @ git+https://github.com/facebookresearch/detectron2.git@b15f64ec4429e23a148972175a0207c5a9ab84cf
-detectron2-densepose @ git+https://github.com/facebookresearch/detectron2@96c752ce821a3340e27edd51c28a00665dd32a30#subdirectory=projects/DensePose
+# detectron2 @ git+https://github.com/facebookresearch/detectron2.git@b15f64ec4429e23a148972175a0207c5a9ab84cf
+# detectron2-densepose @ git+https://github.com/facebookresearch/detectron2@96c752ce821a3340e27edd51c28a00665dd32a30#subdirectory=projects/DensePose
 dominate==2.9.1
--e git+https://github.com/hukkelas/deep_privacy2/@f4d8f09d1eb8f758c89cf1795ae41f20533942d3#egg=dp2
+# -e git+https://github.com/hukkelas/deep_privacy2/@f4d8f09d1eb8f758c89cf1795ae41f20533942d3#egg=dp2
 easydict==1.13
 einops==0.8.1
 einops-exts==0.0.4
@@ -122,7 +122,7 @@ tomli==2.2.1
 tops @ git+https://github.com/hukkelas/torch_ops.git@f37203980a50a93092e8e4a49de1b318c5005ddd
 torch==2.2.2
 torch-fidelity==0.3.0
-torchaudio==2.5.1+cu121
+# torchaudio==2.5.1+cu121
 torchvision==0.17.2
 tqdm==4.67.1
 triton==2.2.0
