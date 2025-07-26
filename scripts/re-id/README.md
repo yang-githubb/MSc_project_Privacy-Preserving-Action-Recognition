@@ -1,124 +1,138 @@
-# Re-Identification (Re-ID) Evaluation Pipeline
+# Re-ID Evaluation Pipeline
 
-This folder contains scripts for evaluating person re-identification performance and identity leakage after anonymization.
+This pipeline evaluates the effectiveness of anonymization by testing if anonymized images can still be matched to original identities using re-identification models.
 
-## Pipeline Overview
+## Overview
 
-The re-ID evaluation pipeline consists of several stages:
+The pipeline consists of 4 main steps:
+1. **Extract frames** from original and anonymized videos
+2. **Crop and remove background** from frames to isolate persons
+3. **Organize data** for re-ID evaluation
+4. **Evaluate re-ID performance** using OSNet model
 
-1. **Data Preparation**: Extract and organize person crops from videos
-2. **Feature Extraction**: Use pre-trained Re-ID models to extract identity features
-3. **Privacy Evaluation**: Measure identity leakage after anonymization
-4. **Identity Drift Analysis**: Analyze temporal consistency of identities
+## Complete Pipeline Commands
 
-## Scripts
-
-### Data Preparation
-
-#### `extract_person_crops_yolov5.py`
-- **Purpose**: Extract person crops from video frames using YOLOv5 detection
-- **Input**: Video frames or video files
-- **Output**: Cropped person images for Re-ID evaluation
-- **Usage**: 
-  ```bash
-  python extract_person_crops_yolov5.py --input_dir /path/to/frames --output_dir /path/to/crops
-  ```
-
-#### `organize_reid_dataset.py`
-- **Purpose**: Organize extracted crops into Re-ID dataset format
-- **Input**: Cropped person images
-- **Output**: Organized dataset with proper ID/camera structure
-- **Usage**:
-  ```bash
-  python organize_reid_dataset.py --input_dir /path/to/crops --output_dir /path/to/reid_dataset
-  ```
-
-### Privacy Evaluation
-
-#### `evaluate_reid_osnet.py` ⭐ **MAIN SCRIPT**
-- **Purpose**: Evaluate identity leakage after anonymization using OSNet
-- **Setup**: 
-  - Query set: ANONYMIZED frames
-  - Gallery set: ORIGINAL frames
-- **Metrics**: Rank-1 accuracy and mAP
-- **Privacy Interpretation**:
-  - **Low Rank-1 (< 25%)** = Good privacy (identity obfuscated) ✅
-  - **High Rank-1 (≥ 25%)** = Poor privacy (identity preserved) ⚠️
-- **Usage**:
-  ```bash
-  python evaluate_reid_osnet.py --query_dir /path/to/anonymized --gallery_dir /path/to/original
-  ```
-
-### Identity Drift Analysis
-
-#### `evaluate_identity_drift_osnet.py`
-- **Purpose**: Analyze identity drift over time using OSNet features
-- **Metrics**: Cosine similarity, Euclidean distance, Manhattan distance, Pearson correlation
-- **Output**: Temporal consistency analysis and plots
-- **Usage**:
-  ```bash
-  python evaluate_identity_drift_osnet.py --frames_dir /path/to/frames --plot_path drift_analysis.png
-  ```
-
-#### `evaluate_identity_drift_agw.py`
-- **Purpose**: Analyze identity drift using AGW (Attribute-Guided Network) features
-- **Similar to**: `evaluate_identity_drift_osnet.py` but uses AGW model
-- **Usage**:
-  ```bash
-  python evaluate_identity_drift_agw.py --frames_dir /path/to/frames --plot_path drift_analysis_agw.png
-  ```
-
-## Evaluation Workflow
-
-### 1. Privacy Assessment
+### Step 1: Extract Frames from Videos
 ```bash
-# Step 1: Extract person crops from original and anonymized videos
-python extract_person_crops_yolov5.py --input_dir original_frames --output_dir original_crops
-python extract_person_crops_yolov5.py --input_dir anonymized_frames --output_dir anonymized_crops
-
-# Step 2: Organize into Re-ID format
-python organize_reid_dataset.py --input_dir original_crops --output_dir reid_gallery
-python organize_reid_dataset.py --input_dir anonymized_crops --output_dir reid_query
-
-# Step 3: Evaluate privacy (identity leakage)
-python evaluate_reid_osnet.py --query_dir reid_query --gallery_dir reid_gallery
+python scripts/re-id/videos_to_frames.py \
+    --original_video /work/tc067/tc067/s2737744/Dataset/ucf101/UCF-101/Archery/v_Archery_g01_c01.avi \
+    --anonymized_video /work/tc067/tc067/s2737744/output/ucf101_anonymized/Archery/v_Archery_g01_c01_anonymized.mp4 \
+    --output_dir datasets/video_frames
 ```
 
-### 2. Identity Drift Analysis
+### Step 2: Crop Full Body and Remove Background
 ```bash
-# Analyze temporal consistency of identities
-python evaluate_identity_drift_osnet.py --frames_dir anonymized_frames --plot_path identity_drift.png
+# Process original frames
+python scripts/re-id/crop_fullbody.py \
+    --input_dir datasets/video_frames/Archery_g01_c01/original_frames \
+    --output_dir datasets/cropped/original_cropped \
+    --remove_background
+
+# Process anonymized frames
+python scripts/re-id/crop_fullbody.py \
+    --input_dir datasets/video_frames/Archery_g01_c01/anonymized_frames \
+    --output_dir datasets/cropped/anonymized_cropped \
+    --remove_background
 ```
 
-## Expected Results
+### Step 3: Organize Data for Re-ID Evaluation
+```bash
+python scripts/re-id/organize_reid_data.py \
+    --original_cropped_dir datasets/cropped/original_cropped \
+    --anonymized_cropped_dir datasets/cropped/anonymized_cropped \
+    --output_dir datasets/reid_eval
+```
 
-### Privacy Evaluation Results
-- **Rank-1 Accuracy**: Percentage of anonymized queries correctly matched to original identities
-- **mAP**: Mean Average Precision across all ranks
+### Step 4: Run Re-ID Evaluation
+```bash
+python scripts/re-id/evaluate_reid_osnet.py \
+    --query_dir datasets/reid_eval/query \
+    --gallery_dir datasets/reid_eval/gallery
+```
+
+## Data Organization Strategy
+
+The pipeline organizes data as follows:
+
+- **Query**: 1 anonymized frame (ID 0001, camera c1)
+- **Gallery**: 
+  - Remaining anonymized frames (ID 0001, camera c1)
+  - 1 original frame (ID 0001, camera c2)
+
+This setup tests if the anonymized query can be matched to the original frame.
+
+## Evaluation Metrics
+
+The evaluation provides:
+- **Rank-1 Accuracy**: Percentage of queries correctly matched at rank 1
+- **mAP Score**: Mean Average Precision
 - **Privacy Level**: 
-  - 🟢 EXCELLENT (< 10%)
-  - 🟡 GOOD (10-25%)
-  - 🟠 MODERATE (25-50%)
-  - 🔴 POOR (> 50%)
+  - EXCELLENT: < 10% Rank-1 accuracy
+  - GOOD: 10-25% Rank-1 accuracy  
+  - MODERATE: 25-50% Rank-1 accuracy
+  - POOR: > 50% Rank-1 accuracy
 
-### Identity Drift Results
-- **Cosine Similarity**: Higher values indicate more consistent identities
-- **Euclidean/Manhattan Distance**: Lower values indicate more consistent identities
-- **LPIPS/SSIM**: Image-based consistency metrics
+## Interpretation
+
+- **High Rank-1 accuracy** = Bad anonymization (identity still recognizable)
+- **Low Rank-1 accuracy** = Good anonymization (identity properly obfuscated)
+
+## Background Removal
+
+The crop script includes background removal with white background:
+- Uses MediaPipe Selfie Segmentation (preferred)
+- Falls back to OpenCV DNN segmentation
+- Replaces background with white (255, 255, 255)
+- Enabled by default with `--remove_background`
+- Can be disabled with `--no_remove_background`
+
+## Batch Processing
+
+For processing multiple videos, use batch mode:
+
+```bash
+# Batch frame extraction (future feature)
+python scripts/re-id/videos_to_frames.py --batch_file video_pairs.txt
+
+# Batch cropping
+python scripts/re-id/crop_fullbody.py --batch_mode \
+    --input_base_dir datasets/video_frames \
+    --output_base_dir datasets/cropped
+
+# Batch re-ID organization
+python scripts/re-id/organize_reid_data.py --batch_mode \
+    --cropped_base_dir datasets/cropped \
+    --output_base_dir datasets/reid_eval_batch
+```
 
 ## Dependencies
 
-- `torchreid`: For OSNet and AGW models
-- `torch`: PyTorch framework
-- `opencv-python`: Image processing
-- `numpy`: Numerical computations
-- `matplotlib`: Plotting results
-- `lpips`: Learned Perceptual Image Patch Similarity
-- `mediapipe`: Pose detection for person segmentation
+- OpenCV
+- MediaPipe (for pose detection and background removal)
+- PyTorch
+- torchreid (for re-ID evaluation)
+- PIL/Pillow
+- NumPy
+
+## File Structure
+
+```
+datasets/
+├── video_frames/
+│   └── Archery_g01_c01/
+│       ├── original_frames/
+│       └── anonymized_frames/
+├── cropped/
+│   ├── original_cropped/
+│   └── anonymized_cropped/
+└── reid_eval/
+    ├── query/
+    └── gallery/
+```
 
 ## Notes
 
-- The main privacy evaluation script (`evaluate_reid_osnet.py`) is designed to measure how well anonymization prevents re-identification
-- Low Rank-1 accuracy indicates successful identity obfuscation
-- High Rank-1 accuracy suggests the anonymization method needs improvement
-- Identity drift analysis helps understand temporal consistency of the anonymization 
+- Uses random seed 42 for reproducible frame selection
+- Frame selection is randomized to avoid bias
+- Background removal improves re-ID evaluation by removing distracting elements
+- The pipeline is designed to test anonymization effectiveness specifically 
