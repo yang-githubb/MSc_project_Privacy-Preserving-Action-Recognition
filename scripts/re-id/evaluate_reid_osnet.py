@@ -100,43 +100,48 @@ if __name__ == "__main__":
     print(f"Rank-1 Accuracy: {rank1_acc:.2f}%")
     print(f"mAP Score: {map_score:.2f}%")
     
-    # Analyze original frame performance
-    original_frame_ranks = []
-    original_frame_distances = []
+    # Analyze anonymized frame performance (find best anonymized match for SAME person)
+    best_anonymized_ranks = []
+    best_anonymized_distances = []
     
     for q_idx, query_filename in enumerate(query_filenames):
         query_distances = distmat[q_idx]
+        query_pid = query_ids[q_idx]  # Get the correct person ID for this query
         
-        # Find the original frame (c2) in gallery
-        original_frame_found = False
+        # Find the best anonymized frame (c2) in gallery for the SAME person
+        best_anonymized_rank = float('inf')
+        best_anonymized_distance = float('inf')
+        best_anonymized_filename = ""
+        
         for g_idx, gallery_filename in enumerate(gallery_filenames):
-            if gallery_filename.split('_')[1] == 'c2':  # Original frame
-                original_index = g_idx
-                original_filename = gallery_filename
-                original_distance = query_distances[g_idx].item()
-                original_frame_found = True
-                break
-        
-        # Find rank of the original frame
-        if original_frame_found:
-            sorted_indices = torch.argsort(query_distances)
-            original_rank = (sorted_indices == original_index).nonzero(as_tuple=True)[0].item() + 1
+            gallery_pid = gallery_ids[g_idx]  # Get person ID for this gallery image
             
-            original_frame_ranks.append(original_rank)
-            original_frame_distances.append(original_distance)
-            
-            print(f"Original Frame Rank: {original_rank}")
-            print(f"Distance to original frame ({original_filename}): {original_distance:.4f}")
-    
-    # Calculate R1 and mAP for original frame specifically
-    if original_frame_ranks:
-        # R1: Percentage of queries where original frame is at rank 1
-        r1_original = sum(1 for rank in original_frame_ranks if rank == 1) / len(original_frame_ranks) * 100
+            # Only evaluate matches that are anonymized AND for the SAME person
+            if gallery_filename.split('_')[1] == 'c2' and gallery_pid == query_pid:
+                distance = query_distances[g_idx].item()
+                sorted_indices = torch.argsort(query_distances)
+                rank = (sorted_indices == g_idx).nonzero(as_tuple=True)[0].item() + 1
+                
+                if rank < best_anonymized_rank:
+                    best_anonymized_rank = rank
+                    best_anonymized_distance = distance
+                    best_anonymized_filename = gallery_filename
         
-        # mAP: Mean Average Precision for original frame
-        # For single query, mAP = 1/rank if original frame is found, 0 otherwise
-        map_original = sum(1.0/rank for rank in original_frame_ranks) / len(original_frame_ranks) * 100
-        
-        print(f"\nOriginal Frame R1: {r1_original:.2f}%")
-        print(f"Original Frame mAP: {map_original:.2f}%")
+        if best_anonymized_rank != float('inf'):
+            best_anonymized_ranks.append(best_anonymized_rank)
+            best_anonymized_distances.append(best_anonymized_distance)
     
+    # Calculate R1 and mAP for best anonymized frame (correct person matches only)
+    if best_anonymized_ranks:
+        # R1: Percentage of queries where correct anonymized frame is at rank 1
+        r1_anonymized = sum(1 for rank in best_anonymized_ranks if rank == 1) / len(best_anonymized_ranks) * 100
+        
+        # mAP: Mean Average Precision for correct anonymized frame
+        map_anonymized = sum(1.0/rank for rank in best_anonymized_ranks) / len(best_anonymized_ranks) * 100
+        
+        print(f"\nCorrect Person Match Results:")
+        print(f"Best Anonymized Frame R1: {r1_anonymized:.2f}%")
+        print(f"Best Anonymized Frame mAP: {map_anonymized:.2f}%")
+        print(f"Number of correct person matches found: {len(best_anonymized_ranks)}")
+    else:
+        print("\nNo correct person matches found in evaluation")
