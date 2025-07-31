@@ -289,7 +289,7 @@ def crop_fullbody(image_path, output_path, pose_model, model_type, seg_model=Non
     cv2.imwrite(output_path, cropped)
     return True
 
-def process_frames_directory(input_dir, output_dir, pose_model, model_type, seg_model=None, seg_type="none", remove_bg=True):
+def process_frames_directory(input_dir, output_dir, pose_model, model_type, seg_model=None, seg_type="none", remove_bg=True, skip_existing=False):
     """
     Process all frames in a directory by cropping full-body poses and removing background
     
@@ -301,6 +301,7 @@ def process_frames_directory(input_dir, output_dir, pose_model, model_type, seg_
         seg_model: Segmentation model for background removal
         seg_type (str): Type of segmentation model ("mediapipe", "opencv", or "none")
         remove_bg (bool): Whether to remove background
+        skip_existing (bool): Skip images that already have crops
     """
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
@@ -308,6 +309,7 @@ def process_frames_directory(input_dir, output_dir, pose_model, model_type, seg_
     # Supported image extensions
     image_extensions = ['.jpg', '.jpeg', '.png', '.bmp']
     processed_count = 0
+    skipped_count = 0
     total_count = 0
     
     # Process each image file in the directory
@@ -317,10 +319,17 @@ def process_frames_directory(input_dir, output_dir, pose_model, model_type, seg_
             input_path = os.path.join(input_dir, filename)
             output_path = os.path.join(output_dir, filename)
             
+            # Check if output already exists and skip if requested
+            if skip_existing and os.path.exists(output_path):
+                skipped_count += 1
+                continue
+            
             if crop_fullbody(input_path, output_path, pose_model, model_type, seg_model, seg_type, remove_bg):
                 processed_count += 1
     
     print(f"Processed {processed_count}/{total_count} frames in {input_dir}")
+    if skip_existing and skipped_count > 0:
+        print(f"Skipped {skipped_count} existing crops")
 
 def process_batch_directories(input_base_dir, output_base_dir, pose_model, model_type):
     """
@@ -367,6 +376,10 @@ if __name__ == "__main__":
                        help='Base directory containing video subdirectories (for batch mode)')
     parser.add_argument('--output_base_dir', type=str,
                        help='Base directory for output (for batch mode)')
+    parser.add_argument('--skip_existing', action='store_true',
+                       help='Skip images that already have crops')
+    parser.add_argument('--num_workers', type=int, default=8,
+                       help='Number of parallel workers (default: 8)')
     
     args = parser.parse_args()
     
@@ -398,4 +411,4 @@ if __name__ == "__main__":
         process_batch_directories(args.input_base_dir, args.output_base_dir, pose_model, model_type)
     else:
         # Single directory processing mode
-        process_frames_directory(args.input_dir, args.output_dir, pose_model, model_type, seg_model, seg_type, remove_bg) 
+        process_frames_directory(args.input_dir, args.output_dir, pose_model, model_type, seg_model, seg_type, remove_bg, args.skip_existing) 
