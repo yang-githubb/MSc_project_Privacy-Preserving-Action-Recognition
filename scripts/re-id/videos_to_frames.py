@@ -100,33 +100,66 @@ def process_batch_videos(video_pairs, output_base_dir, frame_interval=1):
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="Extract frames from original and anonymized videos")
-    parser.add_argument('--original_video', type=str, 
-                       default="/work/tc067/tc067/s2737744/Dataset/ucf101/UCF-101/Archery/v_Archery_g01_c01.avi",
-                       help='Path to original video')
-    parser.add_argument('--anonymized_video', type=str,
-                       default="/work/tc067/tc067/s2737744/output/ucf101_anonymized/Archery/v_Archery_g01_c01_anonymized.mp4",
-                       help='Path to anonymized video')
-    parser.add_argument('--output_dir', type=str,
-                       default="datasets/video_frames",
+    import glob
+    from pathlib import Path
+    
+    parser = argparse.ArgumentParser(description="Extract frames from videos")
+    parser.add_argument('--input_dir', type=str, required=True,
+                       help='Input directory containing videos')
+    parser.add_argument('--output_dir', type=str, required=True,
                        help='Output directory for frames')
-    parser.add_argument('--frame_interval', type=int, default=1,
-                       help='Extract every Nth frame (default: 1)')
-    parser.add_argument('--batch_file', type=str,
-                       help='Path to batch file containing video pairs (for future batch processing)')
+    parser.add_argument('--frame_interval', type=int, default=5,
+                       help='Extract every Nth frame (default: 5 for efficiency)')
+    parser.add_argument('--num_workers', type=int, default=8,
+                       help='Number of parallel workers (default: 8)')
+    parser.add_argument('--skip_existing', action='store_true',
+                       help='Skip videos that already have frames extracted')
     
     args = parser.parse_args()
     
     # Create output directory
     os.makedirs(args.output_dir, exist_ok=True)
     
-    # For now, process single video pair
-    # In the future, this can be extended to process batch files
-    if args.batch_file and os.path.exists(args.batch_file):
-        # Future: Load video pairs from batch file
-        # video_pairs = load_video_pairs_from_file(args.batch_file)
-        # process_batch_videos(video_pairs, args.output_dir, args.frame_interval)
-        pass
-    else:
-        # Process single video pair
-        process_video_pairs(args.original_video, args.anonymized_video, args.output_dir)
+    # Find all video files
+    video_extensions = ['*.avi', '*.mp4', '*.mov', '*.mkv']
+    video_files = []
+    
+    for ext in video_extensions:
+        video_files.extend(glob.glob(os.path.join(args.input_dir, '**', ext), recursive=True))
+    
+    if not video_files:
+        print(f"No video files found in {args.input_dir}")
+        exit(0)
+    
+    print(f"Found {len(video_files)} video files")
+    
+    # Check for existing work and skip if requested
+    if args.skip_existing:
+        skipped_count = 0
+        for video_path in video_files:
+            rel_path = os.path.relpath(video_path, args.input_dir)
+            video_name = os.path.splitext(rel_path)[0]
+            video_output_dir = os.path.join(args.output_dir, video_name)
+            
+            # Check if frames already exist
+            if os.path.exists(video_output_dir) and len(os.listdir(video_output_dir)) > 0:
+                print(f"Skipping {video_name} - frames already exist")
+                skipped_count += 1
+                video_files.remove(video_path)
+        
+        print(f"Skipped {skipped_count} videos with existing frames")
+        print(f"Processing {len(video_files)} remaining videos")
+    
+    # Process remaining videos
+    for video_path in video_files:
+        rel_path = os.path.relpath(video_path, args.input_dir)
+        video_name = os.path.splitext(rel_path)[0]
+        video_output_dir = os.path.join(args.output_dir, video_name)
+        
+        print(f"Processing: {video_name}")
+        os.makedirs(video_output_dir, exist_ok=True)
+        
+        # Extract frames
+        extract_frames(video_path, video_output_dir, args.frame_interval)
+    
+    print(f"Frame extraction completed for {len(video_files)} videos")

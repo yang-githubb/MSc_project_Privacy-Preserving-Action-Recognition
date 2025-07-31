@@ -9,8 +9,10 @@
 #SBATCH --output=/work/tc067/tc067/s2737744/logs/dp/array_%A_%a.out
 #SBATCH --error=/work/tc067/tc067/s2737744/logs/dp/array_%A_%a.err
 
+# Initialize conda with the correct path
+export PATH="/work/tc067/tc067/s2737744/miniconda3/bin:$PATH"
 source /work/tc067/tc067/s2737744/miniconda3/etc/profile.d/conda.sh
-conda activate dp2
+conda activate dp2_eval
 
 export IOPATH_CACHE=/work/tc067/tc067/s2737744/shared_cache/iopath
 export FVCORE_CACHE=/work/tc067/tc067/s2737744/shared_cache/fvcore
@@ -20,7 +22,7 @@ export PYTHONPATH=/work/tc067/tc067/s2737744/detectron2:$PYTHONPATH
 
 cd /work/tc067/tc067/s2737744/deep_privacy2
 
-LIST_FILE="/work/tc067/tc067/s2737744/ucf101_part_$(printf '%02d' $SLURM_ARRAY_TASK_ID)"
+LIST_FILE="/work/tc067/tc067/s2737744/environment/ucf101_part_$(printf '%02d' $SLURM_ARRAY_TASK_ID)"
 OUTPUT_BASE="/work/tc067/tc067/s2737744/output/ucf101_anonymized"
 CONFIG_PATH="configs/anonymizers/FB_cse.py"
 

@@ -1,157 +1,94 @@
-# Privacy-Utility Evaluation Scripts
+# Scripts Directory
 
-This directory contains the complete evaluation pipeline for assessing privacy protection and utility preservation after video anonymization.
+This directory contains all evaluation and processing scripts for the privacy-utility assessment project.
 
-## 📁 Organization
+## 📁 Directory Structure
 
 ```
 scripts/
-├── README.md                           # This file
-├── comprehensive_evaluation.py         # 🎯 MAIN SCRIPT - Unified evaluation
-├── extract_frames.py                   # Video frame extraction
-├── re-id/                              # 🔐 Privacy Assessment
-│   ├── README.md                       # Privacy evaluation documentation
-│   ├── evaluate_reid_osnet.py          # Main privacy evaluation script
-│   ├── evaluate_identity_drift_osnet.py # Temporal consistency analysis
-│   ├── evaluate_identity_drift_agw.py  # AGW-based drift analysis
-│   ├── extract_person_crops_yolov5.py  # Person crop extraction
-│   ├── organize_reid_dataset.py        # Dataset organization
-│   └── visualize_identity_drift.py     # Drift visualization
-└── utility/                            # 🎬 Utility Assessment
-    ├── README.md                       # Utility evaluation documentation
-    ├── evaluate_action_recognition_utility.py # Main utility evaluation script
-    └── evaluation_vid_quality.py       # Video quality metrics
+├── README.md                    # This file
+├── evaluation/                  # Re-ID evaluation scripts
+│   ├── README.md               # Evaluation documentation
+│   ├── cpu_preprocessing.slurm # CPU preprocessing job
+│   └── gpu_evaluation.slurm    # GPU evaluation job
+├── re-id/                      # Re-ID processing scripts
+│   ├── README.md               # Re-ID documentation
+│   ├── videos_to_frames.py     # Frame extraction (with skip)
+│   ├── crop_fullbody.py        # Person cropping (with skip)
+│   ├── organize_reid_data.py   # Data organization
+│   └── evaluate_reid_osnet.py  # Re-ID evaluation
+├── dataset_prep/               # Dataset preparation utilities
+├── utility/                    # Other utility scripts
 ```
 
-## 🎯 Quick Start
+## 🚀 Quick Start
 
-### Option 1: Comprehensive Evaluation (Recommended)
+### Re-ID Evaluation (Privacy Assessment)
+
 ```bash
-# Run complete privacy-utility evaluation
-python comprehensive_evaluation.py --original_videos /path/to/original --anonymized_videos /path/to/anonymized
+# Step 1: CPU preprocessing (8 hours, no GPU)
+sbatch scripts/evaluation/cpu_preprocessing.slurm
+
+# Step 2: GPU evaluation (2 hours, efficient GPU usage)
+sbatch scripts/evaluation/gpu_evaluation.slurm
 ```
 
-### Option 2: Individual Assessments
-```bash
-# Privacy Assessment
-python re-id/evaluate_reid_osnet.py --query_dir /path/to/anonymized --gallery_dir /path/to/original
+## 📊 What Each Directory Does
 
-# Utility Assessment  
-python utility/evaluate_action_recognition_utility.py --original_dir /path/to/original --anonymized_dir /path/to/anonymized
+### `evaluation/`
+- **Purpose**: Organized Re-ID evaluation pipeline
+- **Features**: CPU/GPU split, skip functionality, efficient resource usage
+- **Scripts**: 
+  - `cpu_preprocessing.slurm` - Frame extraction, cropping, organization
+  - `gpu_evaluation.slurm` - Re-ID model evaluation only
+
+### `re-id/`
+- **Purpose**: Core Re-ID processing scripts
+- **Features**: Skip functionality, parallel processing, optimization
+- **Scripts**:
+  - `videos_to_frames.py` - Extract frames from videos
+  - `crop_fullbody.py` - Crop person images using pose detection
+  - `organize_reid_data.py` - Organize data for Re-ID evaluation
+  - `evaluate_reid_osnet.py` - Run OSNet Re-ID evaluation
+
+### `dataset_prep/`
+- **Purpose**: Dataset preparation and preprocessing utilities
+- **Use**: When you need to prepare or modify datasets
+
+### `utility/`
+- **Purpose**: General utility scripts and tools
+- **Use**: For various project utilities and helper functions
+
+## ⚡ Key Features
+
+1. **Efficient Resource Usage**: CPU preprocessing + GPU evaluation only
+2. **Skip Functionality**: Won't redo completed work
+3. **Time Savings**: 6 hours → 2 hours GPU time
+4. **Clean Organization**: Each directory has specific purpose
+
+## 📋 Output Structure
+
+```
+output/reid_evaluation/
+├── original_frames/             # Extracted original video frames
+├── anonymized_frames/           # Extracted anonymized video frames
+├── original_crops/              # Cropped person images (original)
+├── anonymized_crops/            # Cropped person images (anonymized)
+├── reid_original/               # Organized Re-ID data (original)
+├── reid_anonymized/             # Organized Re-ID data (anonymized)
+├── reid_results.json            # Final evaluation results
+└── preprocessing_complete.flag   # Preprocessing completion flag
 ```
 
-## 🔐 Privacy Assessment (Re-ID)
+## 🔍 Monitoring
 
-**Purpose**: Measure identity leakage after anonymization
+- **Job Status**: `squeue -u $USER`
+- **Logs**: `tail -f logs/eval/reid_*.out`
+- **Progress**: Check individual directory READMEs for specific details
 
-**Key Metrics**:
-- **Rank-1 Accuracy**: Percentage of anonymized queries correctly matched to original identities
-- **mAP**: Mean Average Precision across all ranks
+## 📖 Documentation
 
-**Privacy Levels**:
-- 🟢 EXCELLENT (< 10%)
-- 🟡 GOOD (10-25%)
-- 🟠 MODERATE (25-50%)
-- 🔴 POOR (> 50%)
-
-**Main Script**: `re-id/evaluate_reid_osnet.py`
-
-## 🎬 Utility Assessment (Action Recognition)
-
-**Purpose**: Measure utility preservation for downstream tasks
-
-**Key Metrics**:
-- **Top-1 Accuracy Retention**: Percentage of action recognition performance preserved
-
-**Utility Levels**:
-- 🟢 EXCELLENT (≥ 90%)
-- 🟡 GOOD (75-90%)
-- 🟠 MODERATE (50-75%)
-- 🔴 POOR (< 50%)
-
-**Main Script**: `utility/evaluate_action_recognition_utility.py`
-
-## 📊 Comprehensive Evaluation
-
-The `comprehensive_evaluation.py` script provides:
-
-1. **Unified Pipeline**: Runs both privacy and utility assessment
-2. **Combined Score**: Overall privacy-utility balance metric
-3. **Clear Recommendations**: Actionable insights for improvement
-4. **Detailed Reports**: JSON output with all results
-
-**Output Levels**:
-- 🟢 EXCELLENT (≥ 80% combined score)
-- 🟡 GOOD (60-80% combined score)
-- 🟠 MODERATE (40-60% combined score)
-- 🔴 POOR (< 40% combined score)
-
-## 🔧 Dependencies
-
-### Core Dependencies
-- **PyTorch**: Deep learning framework
-- **OpenCV**: Video/image processing
-- **NumPy**: Numerical computations
-
-### Privacy Assessment
-- **TorchReID**: Re-identification framework
-- **OSNet**: Pre-trained person re-identification model
-- **YOLOv5**: Person detection and cropping
-
-### Utility Assessment
-- **MMAction2**: Action recognition framework
-- **TSN Model**: Pre-trained action recognition model
-
-## 📈 Expected Results
-
-### Good Anonymization Results
-- **Privacy**: Rank-1 accuracy < 25% (GOOD or EXCELLENT)
-- **Utility**: Accuracy retention ≥ 75% (GOOD or EXCELLENT)
-- **Overall**: Combined score ≥ 60% (GOOD or EXCELLENT)
-
-### Areas for Improvement
-- **High Rank-1**: Strengthen anonymization method
-- **Low Utility Retention**: Adjust anonymization parameters
-- **Poor Combined Score**: Rebalance privacy-utility trade-off
-
-## 🚀 Usage Examples
-
-### Basic Evaluation
-```bash
-python comprehensive_evaluation.py \
-  --original_videos datasets/original_videos \
-  --anonymized_videos datasets/anonymized_videos
-```
-
-### With Ground Truth
-```bash
-python comprehensive_evaluation.py \
-  --original_videos datasets/original_videos \
-  --anonymized_videos datasets/anonymized_videos \
-  --ground_truth datasets/ground_truth.csv
-```
-
-### Skip Preprocessing (if already done)
-```bash
-python comprehensive_evaluation.py \
-  --original_videos datasets/original_videos \
-  --anonymized_videos datasets/anonymized_videos \
-  --skip_frames --skip_crops --skip_reid_org
-```
-
-## 📝 Output Files
-
-- `comprehensive_evaluation_results.json`: Complete evaluation results
-- `action_recognition_results.json`: Utility assessment results
-- `temp_evaluation/`: Temporary processing files
-
-## 🔗 Integration
-
-This evaluation pipeline is designed to work with:
-- **DeepPrivacy2**: Video anonymization system
-- **MMAction2**: Action recognition framework
-- **TorchReID**: Re-identification framework
-
-For detailed documentation of individual components, see:
-- `re-id/README.md`: Privacy assessment details
-- `utility/README.md`: Utility assessment details 
+- **Main Evaluation**: See `evaluation/README.md`
+- **Re-ID Processing**: See `re-id/README.md`
+- **Dataset Prep**: See `dataset_prep/README.md` (if exists)
+- **Utilities**: See `utility/README.md` (if exists) 
