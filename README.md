@@ -6,14 +6,6 @@
 
 This project implements a comprehensive privacy-preserving video anonymization system using DeepPrivacy2, a state-of-the-art pose-conditioned generative adversarial network (GAN). The system generates anonymized videos while preserving action recognition capabilities and evaluates privacy protection through advanced re-identification metrics.
 
-## 🏆 Key Achievements
-
-- **✅ Excellent Privacy Protection**: Achieved 9.92% Rank-1 accuracy (EXCELLENT privacy level)
-- **✅ Comprehensive Evaluation**: 121-frame re-identification assessment pipeline
-- **✅ DeepPrivacy2 Integration**: Advanced pose-conditioned GAN for high-quality anonymization
-- **✅ Multi-Modal Evaluation**: Face detection, identity drift, and video quality metrics
-- **✅ Temporal Consistency**: Ensures smooth transitions in anonymized videos
-
 ## 📁 Project Structure
 
 ```
@@ -50,15 +42,6 @@ Rank-1 Accuracy: 9.92%
 mAP Score: 16.68%
 Privacy Level: EXCELLENT ✅
 ```
-
-**Interpretation**: Only 9.92% of anonymized identities could be correctly matched back to original identities, demonstrating **excellent privacy protection** with 90.08% of identities successfully anonymized.
-
-### 📊 Privacy Levels
-- 🟢 **EXCELLENT** (< 10% Rank-1 accuracy)
-- 🟡 **GOOD** (10-25% Rank-1 accuracy)
-- 🟠 **MODERATE** (25-50% Rank-1 accuracy)
-- 🔴 **POOR** (> 50% Rank-1 accuracy)
-
 ## 🚀 Complete Pipeline Workflow
 
 ### 1. Video Frame Extraction
@@ -195,17 +178,11 @@ The pipeline follows the DeepPrivacy2 methodology:
 - **Success**: Lower re-identification rates = better anonymization
 
 ## 📝 License
-
 This project is for academic research purposes. Please refer to individual component licenses for specific terms.
 
 ## 🤝 Acknowledgments
-
 - **DeepPrivacy2**: [Original Implementation](https://github.com/hukkelas/deep_privacy2)
 - **Detectron2**: Facebook Research
 - **MMAction2**: OpenMMLab
 - **OSNet**: [TorchReID](https://github.com/KaiyangZhou/deep-person-reid)
 - **MediaPipe**: Google Research
-
-## 📞 Contact
-
-For questions or collaboration opportunities, please refer to the project documentation or contact the research team. 
